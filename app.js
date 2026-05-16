@@ -618,16 +618,20 @@ function matchesItemSearch(item, search) {
   if (!search.primaryTerms.length) return true;
   if (isTrueWeaponQuery(search.raw)) return item.kind === "equipment" && isTrueWeaponItem(item);
   const haystack = item.abilitySearchText || item.searchText || getSearchableText(`${item.name} ${item.subtype} ${item.haystack}`);
-  if (search.requiresPhraseMatch) return matchesPhraseVariant(haystack, search.phraseVariants);
-  return search.primaryTerms.every((term) => matchesSearchTerm(haystack, term));
+  const nameHaystack = getSearchableText(item.name);
+  if (search.requiresPhraseMatch) return matchesPhraseVariant(haystack, search.phraseVariants) || matchesPhraseVariant(nameHaystack, search.phraseVariants);
+  return search.primaryTerms.every((term) => matchesSearchTerm(haystack, term) || matchesNameTerm(nameHaystack, term));
 }
 
 function scoreItem(item, search) {
   if (!search.primaryTerms.length) return 1;
   let score = 0;
   const haystack = item.abilitySearchText || item.searchText || getSearchableText(item.haystack);
+  const nameHaystack = getSearchableText(item.name);
   if (search.requiresPhraseMatch && matchesPhraseVariant(haystack, search.phraseVariants)) score += 20;
+  if (search.requiresPhraseMatch && matchesPhraseVariant(nameHaystack, search.phraseVariants)) score += 28;
   search.expandedTerms.forEach((term) => {
+    if (matchesNameTerm(nameHaystack, term)) score += 10;
     if (matchesSearchTerm(haystack, term)) score += 4;
   });
   return score;
@@ -641,6 +645,11 @@ function matchesSearchTerm(haystack, term) {
   if (!term) return false;
   if (haystack.includes(` ${term} `)) return true;
   return false;
+}
+
+function matchesNameTerm(haystack, term) {
+  if (!term) return false;
+  return haystack.split(/\s+/).some((word) => word.startsWith(term));
 }
 
 function getPhraseVariants(phrase) {
